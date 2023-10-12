@@ -47,7 +47,8 @@ int semtab_destroy(int semid){
 }
 
 int main(){
-    key_t key = ftok("./semfilee", 65) ;
+    key_t key = ftok("./semfile", 65) ;
+    printf("key: %d\n", key);
     int init = semtab_init(&key, key, 1);
     printf("init: %d\n", init);
 }
