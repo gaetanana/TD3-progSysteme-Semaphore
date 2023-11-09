@@ -1,6 +1,8 @@
 #include "blockchain.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <string.h>
 
 void fill_transaction(Transaction *transaction)
 {
@@ -28,15 +30,6 @@ Block *nextBlock(Block *previous)
     return newBlock;
 }
 
-unsigned long getBlockHash(Block *block)
-{
-    int s = 256 * sizeof(Transaction) + 32;
-    unsigned char buff[s];
-    memcpy(buff, &block->transactions, 256 * sizeof(Transaction));
-    memcpy(buff + 256 * sizeof(Transaction), &block->previous_hashcode, 32);
-    return simple_hash(buff, s);
-};
-
 unsigned long simple_hash(byte *data, size_t length)
 {
     unsigned long hash = 5381;
@@ -46,3 +39,14 @@ unsigned long simple_hash(byte *data, size_t length)
     }
     return hash;
 }
+
+
+unsigned long getBlockHash(Block *block)
+{
+    int s = 256 * sizeof(Transaction) + 32;
+    unsigned char buff[s];
+    memcpy(buff, &block->transactions, 256 * sizeof(Transaction));
+    memcpy(buff + 256 * sizeof(Transaction), &block->previous_hashcode, 32);
+    return simple_hash(buff, s);
+};
+
