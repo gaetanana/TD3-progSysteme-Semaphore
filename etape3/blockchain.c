@@ -1,46 +1,34 @@
 #include "blockchain.h"
 #include <pthread.h>
 #include <semaphore.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#define BUFFER_SIZE 256 // La taille du buffer circulaire
+#define MAX_TRANSACTIONS_PER_BLOCK 256
 
-#define BUFFER_SIZE 256
-
-// Définition du buffer circulaire
+/* Phase n°0 initialisation des sémaphores et des mutex et du buffer circulaire */
+// Buffer circulaire pour les transactions
 Transaction buffer[BUFFER_SIZE];
-int in = 0; // index où le producteur placera la prochaine transaction
-int out = 0; // index d'où le consommateur prendra la prochaine transaction
+int writeIndex = 0;
+int readIndex = 0;
 
-// Sémaphores pour la synchronisation
-sem_t mutex, empty, full;
+// Sémaphores et mutex
+sem_t empty;
+sem_t full;
+pthread_mutex_t mutex;
+/* Fin phase n°0 */
 
-// Blockchain
-Blockchain blockchain;
-Block *currentBlock;
-int currentTransactionIndex = 0;
-
-// Prototypes
-Transaction* nextTransaction(void);
-int isTransactionValid(Transaction *transaction);
-int isBlockValid(Block *block);
-unsigned long getBlockHash(Block *block);
-Block* nextBlock(Block *previous);
-void validateBlock();
-
-void *producer(void *arg) {
-    while(1) {
-        Transaction *transaction = nextTransaction();
-
+/* Phase n°1 production de transaction */
+// Fonction pour produire des transactions
+void* producer(void* arg) {
+    while (1) {
+        Transaction* transaction = nextTransaction();
         sem_wait(&empty);
-        sem_wait(&mutex);
+        pthread_mutex_lock(&mutex);
 
-        buffer[in] = *transaction;
-        in = (in + 1) % BUFFER_SIZE;
+        buffer[writeIndex] = *transaction;
+        writeIndex = (writeIndex + 1) % BUFFER_SIZE;
 
-        printf("Transaction produite : [ID: %ld, Données: %s]\n", transaction->id, transaction->data);
-
-        sem_post(&mutex);
+        pthread_mutex_unlock(&mutex);
         sem_post(&full);
 
         free(transaction);
@@ -48,74 +36,78 @@ void *producer(void *arg) {
     return NULL;
 }
 
-void *consumer(void *arg) {
-    while(1) {
+/* Fin phase n°1 */
+
+/* Phase n°2 traitement de transaction et validation de transaction */
+
+int isTransactionValid(Transaction* transaction){
+    // Vérifier que la transaction est valide
+    return 1;
+}
+
+void* consumer(void* arg) {
+    Block* currentBlock = (Block*)arg;
+    while (1) { // Remplacer par une condition pour arrêter proprement
         sem_wait(&full);
-        sem_wait(&mutex);
+        pthread_mutex_lock(&mutex);
 
-        Transaction transaction = buffer[out];
-        out = (out + 1) % BUFFER_SIZE;
+        Transaction transaction = buffer[readIndex];
+        readIndex = (readIndex + 1) % BUFFER_SIZE;
 
-        printf("Transaction consommée : [ID: %ld, Données: %s]\n", transaction.id, transaction.data);
-
-        sem_post(&mutex);
+        pthread_mutex_unlock(&mutex);
         sem_post(&empty);
 
-        if(isTransactionValid(&transaction)) {
-            currentBlock->transactions[currentTransactionIndex++] = transaction;
-            if(currentTransactionIndex == 256) {
-                validateBlock();
-                printf("Bloc validé et ajouté à la blockchain.\n");
-                currentTransactionIndex = 0;
+        // Ajouter la transaction valide au bloc
+        if (isTransactionValid(&transaction)) {
+            // Assumer que le bloc ne sera jamais plein dans cet exemple
+            currentBlock->transactions[currentBlock->num_transactions++] = transaction;
+            if (currentBlock->num_transactions == MAX_TRANSACTIONS_PER_BLOCK) {
+                if (isBlockValid(currentBlock)) {
+                    // Ici, vous pourriez ajouter le bloc à la blockchain
+                    // et commencer un nouveau bloc
+                }
+                currentBlock->num_transactions = 0; // Réinitialiser le bloc pour l'exemple
             }
         }
     }
     return NULL;
 }
 
-void validateBlock() {
-    if(isBlockValid(currentBlock)) {
-        unsigned long hash = getBlockHash(currentBlock);
-        memcpy(currentBlock->hashcode, &hash, sizeof(hash));
+/* Fin phase n°2 */
 
-        // Ajouter le bloc à la blockchain
-        Node *node = (Node *)malloc(sizeof(Node));
-        node->block = *currentBlock;
-        node->next = blockchain.head;
-        blockchain.head = node;
+/* Phase n°3 validation de bloc */
 
-        printf("Hash du bloc ajouté: %lu\n", hash);
-
-        currentBlock = nextBlock(currentBlock);
-    }
-}
-
-
-int isTransactionValid(Transaction *transaction) {
-    // Implémentez la logique de validation de la transaction ici
-    return 1;  // supposons que toutes les transactions sont valides pour le moment
-}
-
-int isBlockValid(Block *block) {
-    // Implémentez la logique de validation du bloc ici
-    return 1;  // supposons que tous les blocs sont valides pour le moment
+int isBlockValid(Block* block){
+    // Vérifier que le bloc est valide
+    return 1;
 }
 
 int main() {
-    pthread_t producer_thread, consumer_thread;
-    sem_init(&mutex, 0, 1);
+    // Initialisation
     sem_init(&empty, 0, BUFFER_SIZE);
     sem_init(&full, 0, 0);
+    pthread_mutex_init(&mutex, NULL);
 
-    // Initialisation de la blockchain et du bloc courant
-    blockchain.head = NULL;
-    currentBlock = (Block *)malloc(sizeof(Block));
+    // Création du premier bloc
+    Block* currentBlock = (Block*)malloc(sizeof(Block));
+    memset(currentBlock, 0, sizeof(Block)); // Initialiser le bloc
 
-    pthread_create(&producer_thread, NULL, producer, NULL);
-    pthread_create(&consumer_thread, NULL, consumer, NULL);
+    // Création des threads producteur et consommateur
+    pthread_t tid_producer, tid_consumer;
 
-    pthread_join(producer_thread, NULL);
-    pthread_join(consumer_thread, NULL);
+    pthread_create(&tid_producer, NULL, producer, NULL);
+    pthread_create(&tid_consumer, NULL, consumer, currentBlock);
+
+    // Joindre les threads producteur et consommateur
+    pthread_join(tid_producer, NULL);
+    pthread_join(tid_consumer, NULL);
+
+
+    // Nettoyage
+    free(currentBlock); // Libérer le bloc courant
+    pthread_mutex_destroy(&mutex);
+    sem_destroy(&empty);
+    sem_destroy(&full);
 
     return 0;
 }

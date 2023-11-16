@@ -1,9 +1,10 @@
 #include "blockchain.h"
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <string.h>
 
+unsigned long simple_hash(unsigned char *data, size_t length);
 void fill_transaction(Transaction *transaction)
 {
     srand(time(NULL));
@@ -14,10 +15,8 @@ void fill_transaction(Transaction *transaction)
         transaction->data[i] = rand() % 256;
     }
 }
-
 Transaction *nextTransaction()
 {
-
     Transaction *ptr = (Transaction *)malloc(sizeof(Transaction));
     fill_transaction(ptr);
     return ptr;
@@ -30,17 +29,6 @@ Block *nextBlock(Block *previous)
     return newBlock;
 }
 
-unsigned long simple_hash(byte *data, size_t length)
-{
-    unsigned long hash = 5381;
-    for (size_t i = 0; i < length; ++i)
-    {
-        hash = ((hash << 5) + hash) + data[i];
-    }
-    return hash;
-}
-
-
 unsigned long getBlockHash(Block *block)
 {
     int s = 256 * sizeof(Transaction) + 32;
@@ -50,3 +38,12 @@ unsigned long getBlockHash(Block *block)
     return simple_hash(buff, s);
 };
 
+unsigned long simple_hash(unsigned char *data, size_t length)
+{
+    unsigned long hash = 5381;
+    for (size_t i = 0; i < length; ++i)
+    {
+        hash = ((hash << 5) + hash) + data[i];
+    }
+    return hash;
+}
