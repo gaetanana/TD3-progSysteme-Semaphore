@@ -1,3 +1,6 @@
+
+#ifndef BLOCKCHAIN_H
+#define BLOCKCHAIN_H
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,3 +25,5 @@ typedef struct Node {
 typedef struct {
     Node *head ;
 } Blockchain ;
+
+#endif // BLOCKCHAIN_H

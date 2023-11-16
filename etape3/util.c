@@ -1,8 +1,10 @@
 #include "blockchain.h"
+#include "util.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
 
 unsigned long simple_hash(unsigned char *data, size_t length);
 void fill_transaction(Transaction *transaction)
@@ -15,8 +17,10 @@ void fill_transaction(Transaction *transaction)
         transaction->data[i] = rand() % 256;
     }
 }
+
 Transaction *nextTransaction()
 {
+
     Transaction *ptr = (Transaction *)malloc(sizeof(Transaction));
     fill_transaction(ptr);
     return ptr;
