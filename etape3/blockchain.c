@@ -6,8 +6,9 @@
 #include <unistd.h>
 #define BUFFER_SIZE 256 // La taille du buffer circulaire
 #define MAX_TRANSACTIONS_PER_BLOCK 256
-#define NUM_PRODUCERS 5 // Nombre de producteurs
-#define NUM_CONSUMERS 5 // Nombre de consommateurs
+#define NUM_PRODUCERS 1 // Nombre de producteurs
+#define NUM_CONSUMERS 1 // Nombre de consommateurs
+Blockchain blockchain;
 /* Phase n°0 initialisation des sémaphores et des mutex et du buffer circulaire */
 // Buffer circulaire pour les transactions
 Transaction buffer[BUFFER_SIZE];
@@ -25,13 +26,11 @@ void* producer(void* arg) {
         Transaction* transaction = nextTransaction();
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
-
         buffer[writeIndex] = *transaction;
+        printf("Producer: Transaction produite avec ID %ld\n", transaction->id);
         writeIndex = (writeIndex + 1) % BUFFER_SIZE;
-
         pthread_mutex_unlock(&mutex);
         sem_post(&full);
-
         free(transaction);
     }
     return NULL;
@@ -46,6 +45,7 @@ int isTransactionValid(Transaction* transaction){
         return 0;
     }
 }
+
 // Fonction pour le traitement des transactions (consommateur)
 void* consumer(void* arg) {
     Block* currentBlock = (Block*)arg;
@@ -54,6 +54,7 @@ void* consumer(void* arg) {
         pthread_mutex_lock(&mutex);
 
         Transaction transaction = buffer[readIndex];
+        printf("Consumer: Traitement de la transaction ID %ld\n", transaction.id);
         readIndex = (readIndex + 1) % BUFFER_SIZE;
 
         pthread_mutex_unlock(&mutex);
@@ -62,7 +63,27 @@ void* consumer(void* arg) {
         // Ajouter la transaction valide au bloc
         if (isTransactionValid(&transaction)) {
             currentBlock->transactions[currentBlock->num_transactions++] = transaction;
+            printf("Consumer: Transaction valide ajoutée au bloc\n");
             if (currentBlock->num_transactions == MAX_TRANSACTIONS_PER_BLOCK) {
+                printf("Consumer: Le bloc est plein, ajout à la blockchain\n");
+
+                if (isBlockValid(currentBlock)) {
+                    addBlockToBlockchain(&blockchain, currentBlock);
+                    printf("Consumer: Bloc validé et ajouté à la blockchain\n");
+
+                }
+
+                // Libérer le bloc actuel et en créer un nouveau
+                free(currentBlock);
+                currentBlock = (Block*)malloc(sizeof(Block));
+                memset(currentBlock, 0, sizeof(Block));
+
+                if (currentBlock == NULL) {
+                    fprintf(stderr, "Erreur d'allocation de mémoire pour un nouveau bloc\n");
+                    return NULL;
+                }
+
+
                 // Le bloc est plein, mais sa validation et son ajout à la blockchain
                 // se feront dans la phase n°3
                 // Pour l'instant, on suppose qu'un nouveau bloc est initialisé en dehors de cette fonction
@@ -73,14 +94,12 @@ void* consumer(void* arg) {
     return NULL;
 }
 /* Fin phase n°2 */
-
 /* Phase n°3 validation de bloc */
 // Fonction pour valider un bloc
 int isBlockValid(Block* block){
     // Vérifier que le bloc est valide
     return 1;
 }
-// Fonction pour ajouter un bloc à la blockchain
 // Fonction pour ajouter un bloc à la blockchain
 void addBlockToBlockchain(Blockchain* blockchain, Block* currentBlock) {
     // Calculer le hashcode du bloc
@@ -114,15 +133,18 @@ void addBlockToBlockchain(Blockchain* blockchain, Block* currentBlock) {
 }
 /* Fin phase n°3 */
 
-int main() {
+int main(){
+
+    printf("Démarrage du programme de simulation de blockchain\n");
+
+    blockchain.head = NULL;
+
     // Initialisation du buffer circulaire, des sémaphores et des mutex
     pthread_mutex_init(&mutex, NULL);
     sem_init(&empty, 0, BUFFER_SIZE);
     sem_init(&full, 0, 0);
 
     // Initialisation de la blockchain
-    Blockchain blockchain;
-    blockchain.head = NULL;
 
     // Création du premier bloc
     Block* currentBlock = (Block*)malloc(sizeof(Block));
@@ -139,8 +161,6 @@ int main() {
         pthread_create(&consumers[i], NULL, consumer, currentBlock);
     }
 
-    // Attente (simulation) pour la production et la consommation
-    // Vous pouvez ajuster le temps d'attente selon les besoins
     usleep(10000); // Attente de 10 millisecondes
 
     // Joindre les threads producteurs et consommateurs
@@ -157,7 +177,6 @@ int main() {
     pthread_mutex_destroy(&mutex);
     sem_destroy(&empty);
     sem_destroy(&full);
-
 
     return 0;
 }
