@@ -178,5 +178,8 @@ int main(){
     sem_destroy(&empty);
     sem_destroy(&full);
 
+    //Pour lancer le main
+    //gcc -o blockchain blockchain.c util.c
+    //./blockchain
     return 0;
 }
